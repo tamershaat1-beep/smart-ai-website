@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quill – Free Writing Helper</title>
+  <style>
+    :root {
+      --bg: #eef3f6;
+      --surface: #ffffff;
+      --ink: #12263a;
+      --muted: #5b6b7a;
+      --line: #d5dee5;
+      --accent: #0f766e;
+      --accent-dark: #0b5a54;
+      --paper: #fffdf8;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      line-height: 1.7;
+    }
+    .top {
+      display: flex; justify-content: space-between; align-items: center;
+      max-width: 1080px; margin: 0 auto; padding: 18px 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.3rem; }
+    .logo {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--ink); color: #fff;
+      display: grid; place-items: center; font-weight: 800;
+    }
+    .lang {
+      border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+      padding: 6px 16px; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .lang:hover { background: var(--ink); color: #fff; }
+    main { max-width: 1080px; margin: 0 auto; padding: 0 20px 40px; }
+    .hero { padding: 28px 0 24px; max-width: 680px; }
+    .hero h1 { font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.25; margin: 0 0 12px; font-weight: 800; }
+    .hero p { color: var(--muted); font-size: 1.1rem; margin: 0; }
+    .workspace { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 22px;
+    }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; }
+    label:first-child { margin-top: 0; }
+    input, select {
+      width: 100%; padding: 11px 12px;
+      border: 1.5px solid var(--line); border-radius: 10px;
+      font: inherit; color: var(--ink); background: #fff;
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid rgba(15, 118, 110, .35);
+      outline-offset: 1px; border-color: var(--accent);
+    }
+    .primary {
+      width: 100%; margin-top: 22px; padding: 13px;
+      border: 0; border-radius: 10px;
+      background: var(--accent); color: #fff;
+      font: inherit; font-weight: 800; font-size: 1.05rem; cursor: pointer;
+    }
+    .primary:hover { background: var(--accent-dark); }
+    .error { color: #b42318; margin: 12px 0 0; font-weight: 600; }
+    .paper { background: var(--paper); min-height: 340px; }
+    .paper-bar {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px;
+      font-weight: 800;
+    }
+    .actions { display: flex; gap: 8px; }
+    .ghost {
+      border: 1.5px solid var(--line); background: #fff; color: var(--ink);
+      padding: 5px 14px; border-radius: 8px; font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer;
+    }
+    .ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .ghost:disabled { opacity: .45; cursor: not-allowed; }
+    .output { font-size: 1.05rem; max-width: 62ch; white-space: pre-wrap; }
+    .output.empty { color: var(--muted); }
+    footer { text-align: center; color: var(--muted); font-size: .9rem; padding: 10px 20px 30px; }
+    [dir="rtl"] .output { text-align: right; }
+    [dir="rtl"] body { line-height: 1.9; }
+    @media (max-width: 820px) { .workspace { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">Q</span>
+      <span data-i18n="brand">Quill</span>
+    </div>
+    <button id="langBtn" class="lang" type="button" aria-label="Switch language">العربية</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="title">Write faster. Start with a draft.</h1>
+      <p data-i18n="subtitle">Enter a topic, pick a writing type, and get a sample draft instantly. Free, private, and it runs in your browser.</p>
+    </section>
+
+    <section class="workspace">
+      <form id="form" class="panel" autocomplete="off">
+        <label for="topic" data-i18n="topicLabel">Topic</label>
+        <input id="topic" type="text" maxlength="80" data-i18n-placeholder="topicPlaceholder" placeholder="e.g. Healthy morning habits">
+
+        <label for="type" data-i18n="typeLabel">Writing type</label>
+        <select id="type"></select>
+
+        <label for="length" data-i18n="lengthLabel">Length</label>
+        <select id="length"></select>
+
+        <button class="primary" type="submit" data-i18n="generate">Generate text</button>
+        <p id="error" class="error" role="alert" hidden></p>
+      </form>
+
+      <article class="panel paper" aria-live="polite">
+        <div class="paper-bar">
+          <span data-i18n="outputLabel">Your draft</span>
+          <div class="actions">
+            <button id="copyBtn" type="button" class="ghost" disabled>Copy</button>
+            <button id="clearBtn" type="button" class="ghost" disabled>Clear</button>
+          </div>
+        </div>
+        <div id="output" class="output empty">Your text will appear here.</div>
+      </article>
+    </section>
+  </main>
+
+  <footer data-i18n="footer">Sample text is generated locally from templates. No data leaves your device.</footer>
+
+  <script>
+    /* ---------- 1) UI TEXT ---------- */
+    const UI = {
+      en: {
+        pageTitle: "Quill – Free Writing Helper",
+        brand: "Quill",
+        title: "Write faster. Start with a draft.",
+        subtitle: "Enter a topic, pick a writing type, and get a sample draft instantly. Free, private, and it runs in your browser.",
+        topicLabel: "Topic",
+        topicPlaceholder: "e.g. Healthy morning habits",
+        typeLabel: "Writing type",
+        lengthLabel: "Length",
+        generate: "Generate text",
+        outputLabel: "Your draft",
+        copy: "Copy",
+        copied: "Copied!",
+        clear: "Clear",
+        empty: "Your text will appear here.",
+        errorTopic: "Please enter a topic first.",
+        footer: "Sample text is generated locally from templates. No data leaves your device.",
+        langButton: "العربية",
+        types: { article: "Article", blog: "Blog post", email: "Email", social: "Social media post", product: "Product description", story: "Short story" },
+        lengths: { short: "Short", medium: "Medium", long: "Long" }
+      },
+      ar: {
+        pageTitle: "كويل – مساعد الكتابة المجاني",
+        brand: "كويل",
+        title: "اكتب أسرع. ابدأ بمسودة.",
+        subtitle: "أدخل موضوعاً، واختر نوع الكتابة، واحصل على نص تجريبي فوراً. مجاني وخاص ويعمل داخل متصفحك.",
+        topicLabel: "الموضوع",
+        topicPlaceholder: "مثال: عادات الصباح الصحية",
+        typeLabel: "نوع الكتابة",
+        lengthLabel: "الطول",
+        generate: "أنشئ النص",
+        outputLabel: "مسودتك",
+        copy: "نسخ",
+        copied: "تم النسخ!",
+        clear: "مسح",
+        empty: "سيظهر نصك هنا.",
+        errorTopic: "يرجى إدخال موضوع أولاً.",
+        footer: "يتم إنشاء النص التجريبي محلياً من قوالب جاهزة. لا تغادر أي بيانات جهازك.",
+        langButton: "English",
+        types: { article: "مقال", blog: "تدوينة", email: "بريد إلكتروني", social: "منشور تواصل اجتماعي", product: "وصف منتج", story: "قصة قصيرة" },
+        lengths: { short: "قصير", medium: "متوسط", long: "طويل" }
+      }
+    };
+
+    /* ---------- 2) WRITING TEMPLATES ---------- */
+    const TEMPLATES = {
+      en: {
+        article: {
+          intro: t => `${t} is a subject that touches more of our daily lives than most people realize. Understanding it better can help us make smarter choices and see familiar things in a new light.`,
+          body: [
+            t => `To begin with, it helps to look at the basics of ${t}. Every strong understanding starts with a few simple ideas, and ${t} is no exception.`,
+            t => `Next, consider why ${t} matters today. Things change quickly, and the way people think about ${t} keeps evolving with new tools, habits, and expectations.`,
+            t => `There are also common mistakes to avoid. Many people rush into ${t} without a plan, when a little preparation and patience would save time and effort.`,
+            t => `Finally, a practical approach works best. Start small, stay consistent, and review what you learn about ${t} along the way.`
+          ],
+          end: t => `In short, ${t} rewards curiosity and steady effort. Take one small step today, and the rest will follow.`
+        },
+        blog: {
+          head: t => `${t}: What I Wish I Knew Earlier`,
+          intro: t => `Let's be honest: when I first started thinking about ${t}, I had no idea where to begin. If that sounds like you, you are in the right place.`,
+          body: [
+            t => `Here is the first thing I learned: you don't need to be perfect. With ${t}, progress beats perfection every single time.`,
+            t => `The second lesson was about habits. Small daily actions around ${t} added up faster than any big, one-time effort.`,
+            t => `Third, ask for help. Talking with others about ${t} opened my eyes to ideas I would never have found alone.`,
+            t => `Last, enjoy the process. ${t} gets a lot more fun once you stop worrying about getting it all right.`
+          ],
+          end: t => `That's my story with ${t}. What's yours? Share your thoughts in the comments below.`
+        },
+        email: {
+          head: t => `Subject: Quick note about ${t}`,
+          intro: t => `Hello,\n\nI hope you are doing well. I'm writing to share a few thoughts about ${t}.`,
+          body: [
+            t => `Over the past weeks, ${t} has become an important topic for us, and I believe it deserves a little more attention.`,
+            t => `I'd suggest we set aside time to discuss ${t}, agree on clear goals, and decide who will take the next steps.`,
+            t => `If it helps, I can prepare a short summary on ${t} before we meet.`,
+            t => `Please let me know which day works best for you this week.`
+          ],
+          end: t => `Thank you for your time. I look forward to hearing from you.\n\nBest regards,\n[Your name]`
+        },
+        social: {
+          intro: t => `✨ Let's talk about ${t}!`,
+          body: [
+            t => `Here's something worth remembering: small steps in ${t} lead to big results.`,
+            t => `Tip: start today, keep it simple, and don't compare your progress with others.`,
+            t => `Did you know that most people only scratch the surface of ${t}? There is so much more to explore.`,
+            t => `Save this post and come back to it when you need a reminder.`
+          ],
+          end: (t, tag) => `What is your best advice about ${t}? Tell us below 👇\n\n#${tag} #Tips #Learning`
+        },
+        product: {
+          head: t => `${t} – Product Description`,
+          intro: t => `Meet ${t}: designed to make your day simpler, smoother, and more enjoyable.`,
+          body: [
+            t => `Made with attention to detail, ${t} combines quality and style so it fits naturally into your routine.`,
+            t => `Key benefits: easy to use, reliable every day, and built to last.`,
+            t => `Whether you are a beginner or an expert, ${t} adapts to your needs.`,
+            t => `Thousands of happy customers already trust ${t} for everyday results.`
+          ],
+          end: t => `Order ${t} today and feel the difference from the very first day.`
+        },
+        story: {
+          head: t => `The Story of ${t}`,
+          intro: t => `Once upon a time, in a quiet little town, there lived a curious girl named Lina who dreamed about ${t}.`,
+          body: [
+            t => `Every morning she wondered how ${t} could change her life, and every evening she wrote down new questions in her notebook.`,
+            t => `One day, an old traveler passed through town and told her, "The answer to ${t} is not in a book. You must go and find it."`,
+            t => `So Lina packed a small bag and set off. The road was long, but each step taught her something new about ${t}.`,
+            t => `Along the way she met people who helped her, and she learned that ${t} is better when it is shared.`
+          ],
+          end: t => `When she returned home, Lina understood at last: ${t} had never been far away. It had been waiting for her to begin.`
+        }
+      },
+      ar: {
+        article: {
+          intro: t => `يُعدّ موضوع «${t}» من الموضوعات التي تمسّ حياتنا اليومية أكثر مما نتصوّر. وفهمه بشكل أفضل يساعدنا على اتخاذ قرارات أذكى والنظر إلى الأمور المألوفة بعين جديدة.`,
+          body: [
+            t => `في البداية، من المفيد أن نتعرّف على أساسيات «${t}»، فكل فهم عميق يبدأ بأفكار بسيطة.`,
+            t => `ثم لنسأل: لماذا يهمّنا «${t}» اليوم؟ لأن العالم يتغيّر بسرعة، ونظرة الناس إلى «${t}» تتطوّر مع الأدوات والعادات الجديدة.`,
+            t => `وهناك أخطاء شائعة ينبغي تجنّبها، فكثيرون يبدؤون في «${t}» دون خطة، بينما يوفّر القليل من التحضير والصبر الوقت والجهد.`,
+            t => `وأخيراً، النهج العملي هو الأفضل: ابدأ بخطوات صغيرة، وحافظ على الاستمرارية، وراجع ما تتعلّمه عن «${t}» باستمرار.`
+          ],
+          end: t => `خلاصة القول، إن «${t}» يكافئ الفضول والجهد المستمر. فابدأ اليوم بخطوة صغيرة، وسيأتي الباقي تباعاً.`
+        },
+        blog: {
+          head: t => `«${t}»: ما كنت أتمنى معرفته من قبل`,
+          intro: t => `لنكن صريحين: عندما بدأت أفكّر في «${t}» لم أكن أعرف من أين أبدأ. إن كان هذا حالك أيضاً فأنت في المكان المناسب.`,
+          body: [
+            t => `أول ما تعلّمته أنك لا تحتاج إلى الكمال. ففي «${t}» يتفوّق التقدّم المستمر على الكمال دائماً.`,
+            t => `الدرس الثاني كان عن العادات. فالأفعال الصغيرة اليومية في «${t}» تراكمت أسرع من أي جهد كبير لمرة واحدة.`,
+            t => `ثالثاً، لا تتردد في طلب المساعدة. فالحديث مع الآخرين عن «${t}» فتح لي أفكاراً لم أكن لأجدها وحدي.`,
+            t => `وأخيراً، استمتع بالرحلة. يصبح «${t}» أكثر متعة عندما تتوقف عن القلق من الخطأ.`
+          ],
+          end: t => `هذه قصتي مع «${t}». فما قصتك أنت؟ شاركنا رأيك في التعليقات.`
+        },
+        email: {
+          head: t => `الموضوع: ملاحظة سريعة حول ${t}`,
+          intro: t => `السلام عليكم ورحمة الله،\n\nآمل أن تكونوا بخير. أكتب إليكم لأشارككم بعض الأفكار حول «${t}».`,
+          body: [
+            t => `خلال الأسابيع الماضية أصبح «${t}» موضوعاً مهماً بالنسبة لنا، وأعتقد أنه يستحق اهتماماً أكبر.`,
+            t => `أقترح أن نخصّص وقتاً لمناقشة «${t}»، ونتفق على أهداف واضحة، ونحدّد من سيتولى الخطوات التالية.`,
+            t => `وإن كان ذلك مفيداً، يمكنني إعداد ملخص قصير حول «${t}» قبل اجتماعنا.`,
+            t => `يُرجى إخباري باليوم الأنسب لكم هذا الأسبوع.`
+          ],
+          end: t => `شكراً لوقتكم، وأتطلع إلى ردّكم.\n\nمع خالص التحية،\n[اسمك]`
+        },
+        social: {
+          intro: t => `✨ لنتحدث عن «${t}»!`,
+          body: [
+            t => `شيء يستحق التذكّر: الخطوات الصغيرة في «${t}» تصنع نتائج كبيرة.`,
+            t => `نصيحة: ابدأ اليوم، وابقَ بسيطاً، ولا تقارن تقدّمك بالآخرين.`,
+            t => `هل تعلم أن معظم الناس لا يعرفون سوى القليل عن «${t}»؟ هناك الكثير لاستكشافه.`,
+            t => `احفظ هذا المنشور وعد إليه كلما احتجت إلى تذكير.`
+          ],
+          end: (t, tag) => `ما أفضل نصيحة لديك حول «${t}»؟ أخبرنا في التعليقات 👇\n\n#${tag} #نصائح #تعلّم`
+        },
+        product: {
+          head: t => `${t} – وصف المنتج`,
+          intro: t => `تعرّف على «${t}»: صُمّم ليجعل يومك أبسط وأسهل وأكثر متعة.`,
+          body: [
+            t => `صُنع بعناية فائقة بالتفاصيل، ويجمع «${t}» بين الجودة والأناقة ليناسب روتينك اليومي بسلاسة.`,
+            t => `أبرز المزايا: سهولة الاستخدام، واعتمادية يومية، وجودة تدوم طويلاً.`,
+            t => `سواء كنت مبتدئاً أو خبيراً، يتكيّف «${t}» مع احتياجاتك.`,
+            t => `آلاف العملاء السعداء يثقون بـ«${t}» للحصول على نتائج يومية.`
+          ],
+          end: t => `اطلب «${t}» اليوم، وستلمس الفرق منذ اليوم الأول.`
+        },
+        story: {
+          head: t => `قصة «${t}»`,
+          intro: t => `يُحكى أنه في بلدة هادئة صغيرة، عاشت فتاة فضولية اسمها لينا، كانت تحلم بـ«${t}».`,
+          body: [
+            t => `كل صباح كانت تتساءل كيف يمكن أن يغيّر «${t}» حياتها، وكل مساء كانت تدوّن أسئلة جديدة في دفترها.`,
+            t => `وفي يوم من الأيام مرّ بالبلدة مسافر عجوز، فقال لها: «الجواب عن ${t} ليس في كتاب، بل عليكِ أن تذهبي لتجديه».`,
+            t => `فحزمت لينا حقيبتها الصغيرة وانطلقت. كان الطريق طويلاً، لكن كل خطوة علّمتها شيئاً جديداً عن «${t}».`,
+            t => `وفي الطريق قابلت أناساً ساعدوها، وتعلّمت أن «${t}» أجمل حين نتشاركه.`
+          ],
+          end: t => `وعندما عادت إلى بيتها أدركت أخيراً أن «${t}» لم يكن بعيداً أبداً، بل كان ينتظرها لتبدأ.`
+        }
+      }
+    };
+
+    const BODY_COUNT = { short: 0, medium: 2, long: 4 };
+
+    /* ---------- 3) APP LOGIC ---------- */
+    const $ = id => document.getElementById(id);
+    const els = {
+      form: $("form"), topic: $("topic"), type: $("type"), length: $("length"),
+      output: $("output"), copy: $("copyBtn"), clear: $("clearBtn"),
+      error: $("error"), langBtn: $("langBtn")
+    };
+
+    let lang = "en";
+    try { lang = localStorage.getItem("quill-lang") || "en"; } catch (e) {}
+    if (!UI[lang]) lang = "en";
+    let hasResult = false;
+
+    function generate(topic, type, length) {
+      const tpl = TEMPLATES[lang][type];
+      const tag = topic.replace(/[^\p{L}\p{N}]/gu, "");
+      const parts = [];
+      if (tpl.head) parts.push(tpl.head(topic));
+      parts.push(tpl.intro(topic));
+      tpl.body.slice(0, BODY_COUNT[length]).forEach(fn => parts.push(fn(topic)));
+      parts.push(tpl.end(topic, tag));
+      return parts.join("\n\n");
+    }
+
+    function fillSelect(select, labels, fallback) {
+      const current = select.value || fallback;
+      select.innerHTML = "";
+      Object.keys(labels).forEach(key => {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = labels[key];
+        select.appendChild(opt);
+      });
+      if (labels[current]) select.value = current;
+    }
+
+    function applyLanguage() {
+      const text = UI[lang];
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+      document.title = text.pageTitle;
+
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.textContent = text[el.dataset.i18n];
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        el.placeholder = text[el.dataset.i18nPlaceholder];
+      });
+
+      fillSelect(els.type, text.types, "article");
+      fillSelect(els.length, text.lengths, "medium");
+      els.copy.textContent = text.copy;
+      els.clear.textContent = text.clear;
+      els.langBtn.textContent = text.langButton;
+      if (!hasResult) els.output.textContent = text.empty;
+      els.error.hidden = true;
+    }
+
+    els.form.addEventListener("submit", event => {
+      event.preventDefault();
+      const topic = els.topic.value.trim();
+      if (!topic) {
+        els.error.textContent = UI[lang].errorTopic;
+        els.error.hidden = false;
+        els.topic.focus();
+        return;
+      }
+      els.error.hidden = true;
+      els.output.textContent = generate(topic, els.type.value, els.length.value);
+      els.output.classList.remove("empty");
+      els.copy.disabled = false;
+      els.clear.disabled = false;
+      hasResult = true;
+    });
+
+    els.clear.addEventListener("click", () => {
+      hasResult = false;
+      els.output.textContent = UI[lang].empty;
+      els.output.classList.add("empty");
+      els.copy.disabled = true;
+      els.clear.disabled = true;
+    });
+
+    els.copy.addEventListener("click", async () => {
+      const text = els.output.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      els.copy.textContent = UI[lang].copied;
+      setTimeout(() => { els.copy.textContent = UI[lang].copy; }, 1500);
+    });
+
+    els.langBtn.addEventListener("click", () => {
+      lang = lang === "en" ? "ar" : "en";
+      try { localStorage.setItem("quill-lang", lang); } catch (e) {}
+      const topic = els.topic.value.trim();
+      applyLanguage();
+      if (hasResult && topic) {
+        els.output.textContent = generate(topic, els.type.value, els.length.value);
+      }
+    });
+
+    applyLanguage();
+  </script>
+</body>
+</html> 
